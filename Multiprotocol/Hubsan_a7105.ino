@@ -274,6 +274,9 @@ uint16_t ReadHubsan()
 	uint16_t delay;
 	uint8_t i;
 
+	#ifndef FORCE_HUBSAN_TUNING
+		A7105_AdjustLOBaseFreq(1);
+	#endif
 	switch(phase)
 	{
 		case BIND_1:
@@ -428,7 +431,7 @@ uint16_t initHubsan()
 	channel = allowed_ch[MProtocol_id % sizeof(allowed_ch)];
 	hubsan_id_data=ID_NORMAL;
 
-	if(IS_AUTOBIND_FLAG_on || sub_protocol==H107)
+	if(IS_BIND_IN_PROGRESS || sub_protocol==H107)
 	{
 		BIND_IN_PROGRESS;	// autobind protocol
 		phase = BIND_1;

@@ -1,4 +1,3 @@
-
 /*  **************************
 	* By Midelic on RCGroups *
 	**************************
@@ -244,7 +243,7 @@ uint16_t ReadFrSkyX()
 			frskyX_build_bind_packet();
 			CC2500_Strobe(CC2500_SIDLE);
 			CC2500_WriteData(packet, packet[0]+1);
-			if(IS_BIND_DONE_on)
+			if(IS_BIND_DONE)
 				state = FRSKY_BIND_DONE;
 			else
 				state++;
@@ -335,7 +334,7 @@ uint16_t initFrSkyX()
 	//************************
 	frskyX_init();
 	//
-	if(IS_AUTOBIND_FLAG_on)
+	if(IS_BIND_IN_PROGRESS)
 	{	   
 		state = FRSKY_BIND;
 		frskyX_initialize_data(1);
@@ -351,5 +350,4 @@ uint16_t initFrSkyX()
 	FrX_receive_seq = 0 ;
 	return 10000;
 }	
-
 #endif

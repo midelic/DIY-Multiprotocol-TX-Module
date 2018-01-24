@@ -49,6 +49,9 @@
 //#define REVERSE_THROTTLE
 //#define REVERSE_RUDDER
 
+//DSM protocol is using by default the Spektrum throw of 1100..1900us @100% and 1000..2000us @125%.
+//For more throw, 1024..1976us @100% and 904..2096us @125%, remove the "//" on the line below. Be aware that too much throw can damage some UMX servos. To achieve standard throw in this mode use a channel weight of 84%.
+//#define DSM_MAX_THROW
 
 /*************************/
 /*** BIND FROM CHANNEL ***/
@@ -284,13 +287,11 @@
 // A few things to consider:
 //  - If you put too big values compared to your TX you won't be able to reach the extremes which is bad for throttle as an example
 //  - If you put too low values you won't be able to use your full stick range, it will be maxed out before reaching the ends
-//  - Centered stick value is usually 1500. It should match the middle between MIN and MAX, ie Center=(MAX-MIN)/2+MIN. If your TX is not centered you can adjust the value MIN or MAX.
-//  - 100% is the value when the model is by default, 125% is the value when you extend the servo travel which is only used by some protocols
+//  - Centered stick value is usually 1500. It should match the middle between MIN and MAX, ie Center=(MAX+MIN)/2. If your TX is not centered you can adjust the value MIN or MAX.
+//  - 100% is referred as the value when the TX is set to default with no trims
 #if defined(TX_CUSTOM)
 	#define PPM_MAX_100	1900	//	100%
 	#define PPM_MIN_100	1100	//	100%
-	#define PPM_MAX_125	2000	//	125%
-	#define PPM_MIN_125	1000	//	125%
 #endif
 
 /** Number of PPM Channels **/
@@ -462,7 +463,7 @@ const PPM_Parameters PPM_prot[15]=	{
 		COR_V2
 */
 
-// RX_Num is used for model match. Using RX_Num	values different for each receiver will prevent starting a model with the false config loaded...
+// RX_Num is used for TX & RX match. Using different RX_Num values for each receiver will prevent starting a model with the false config loaded...
 // RX_Num value is between 0 and 15.
 
 // Power P_HIGH or P_LOW: High or low power setting for the transmission.

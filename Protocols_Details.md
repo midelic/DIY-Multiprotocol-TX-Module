@@ -5,7 +5,29 @@ Here are detailed descriptions of every supported protocols (sorted by RF module
  
  The Deviation project (on which this project was based) have a useful list of models and protocols [here](http://www.deviationtx.com/wiki/supported_models).
 
-## Default Mapping of Protocols <a name="DefaultMapping"></a>
+## Useful notes and definitions
+- **Extended limits supported** - A command range of -125%..+125% will be transmitted. Otherwise the default is -100%..+100% only.
+- **Channel Order** - The channel order assumed in all the documentation is AETR. You can change this in the compilation settings. The module will take whatever input channel order and will rearrange them to match the output channel order required by the selected protocol. 
+- **Italic numbers** are referring to protocol/sub_protocol numbers that you should use if the radio (serial mode only) is not displaying (yet) the protocol you want to access.
+- **Autobind protocol**:
+
+1. The transmitter will automatically initiate a bind sequence on power up.  This is for models where the receiver expects to rebind every time it is powered up. In these protocols you do not need to press the bind button at power up to bind, it will be done automatically. In case a protocol is not autobind but you want to enable it, change the "Autobind" (or "Bind at powerup" on OpenTX) setting to Y for the specific model/entry.
+2. Enable Bind from channel feature:
+   * Bind from channel can be globally enabled/disabled in _config.h using ENABLE_BIND_CH.
+   * Bind from channel can be locally enabled/disabled by setting Autobind to Y/N per model for serial or per dial switch number for ppm.
+   * Bind channel can be choosen on any channel between 5 and 16 using BIND_CH in _config.h. Default is 16.
+   * Bind will only happen if all these elements are happening at the same time:
+      - Autobind = Y
+      - Throttle = LOW (<-95%)
+      - Bind channel is going from -100% to +100%
+
+* Additional notes:
+  - It's recommended to combine Throttle cut with another button to drive the bind channel. This will prevent to launch a bind while flying...
+  - Bind channel does not have to be assigned to a free channel. Since it only acts when Throttle is Low (and throttle cut active), it could be used on the same channel as Flip for example since you are not going to flip your model when Throttle is low... Same goes for RTH and such other features.
+  - Using channel 16 for the bind channel seems the most relevant as only one protocol so far is using 16 channels which is FrSkyX. But even on FrSkyX this feature won't have any impact since there is NO valid reason to have Autobind set to Y for such a protocol.
+
+
+## Default Mapping of Protocols in PPM mode<a name="DefaultMapping"></a>
 Here is the default mapping of protocols to the 16-position protocol selection switch on the module.  You can customize these when you compile your own firmware as described in [Compiling and Programming.](docs/Compiling.md)
 
 **Note that the protocol must be selected before the unit is turned on.**
@@ -28,28 +50,6 @@ Dial|Protocol|Sub_protocol|RX Num|Power|Auto Bind|Option|RF Module
 13|CG023|CG023|0|High|No|0|NRF24L01
 14|BAYANG|-|0|High|No|0|NRF24L01
 15|SYMAX|SYMAX5C|0|High|No|0|NRF24L01
-
-## Useful notes and definitions
-- **Extended limits supported** - A command range of -125%..+125% will be transmitted. Otherwise the default is -100%..+100% only.
-- **Channel Order** - The channel order assumed in all the documentation is AETR and it is highly recommended that you keep it this way.  You can change this in the compilation settings.  However, please indicate your channel order in all questions and posts on the forum pages. 
-- **Italic numbers** are referring to protocol/sub_protocol numbers that you should use if the radio (serial mode only) is not displaying (yet) the protocol you want to access.
-- **Autobind protocol**:
-
-1. The transmitter will automatically initiate a bind sequence on power up.  This is for models where the receiver expects to rebind every time it is powered up. In these protocols you do not need to press the bind button at power up to bind, it will be done automatically.
-2. Enable Bind from channel feature:
-   * Bind from channel can be globally enabled/disabled in _config.h using ENABLE_BIND_CH.
-   * Bind from channel can be locally enabled/disabled by setting Autobind to Y/N per model for serial or per dial switch number for ppm.
-   * Bind channel can be choosen on any channel between 5 and 16 using BIND_CH in _config.h.
-   * Bind will only happen if all these elements are happening at the same time:
-    - Autobind = Y
-    - Throttle = LOW (<-95%)
-    - Bind channel is going from -100% to +100%
-
-* Additional notes:
-  - It's recommended to combine Throttle cut with another button to drive the bind channel. This will prevent to launch a bind while flying...
-  - Bind channel does not have to be assigned to a free channel. Since it only acts when Throttle is Low (and throttle cut active), it could be used on the same channel as Flip for example since you are not going to flip your model when Throttle is low... Same goes for RTH and such other features.
-  - Using channel 16 for the bind channel seems the most relevant as only one protocol so far is using 16 channels which is FrSkyX. But even on FrSkyX this feature won't have any impact since there is NO valid reason to have Autobind set to Y for such a protocol.
-
 
 # A7105 RF Module
 
@@ -355,7 +355,9 @@ A|E|T|R|CH5|CH6|CH7|CH8|CH9|CH10|CH11|CH12
 
 Notes:
  - model/type/number of channels indicated on the RX can be different from what the RX is in fact wanting to see. So don't hesitate to test different combinations until you have something working. Using Auto is the best way to find these settings.
- - RX ouput will always be TAER independently of the input AETR, RETA...
+ - RX output will match the Spektrum standard TAER independently of the input configuration AETR, RETA...
+ - RX output will match the Spektrum standard throw (1500µs +/- 400µs -> 1100..1900µs) for a 100% input. This is true for both Serial and PPM input. For PPM, make sure the end points PPM_MIN_100 and PPM_MAX_100 in _config.h are matching your TX ouput. The maximum ouput is 1000..2000µs based on an input of 125%.
+    - If you want to override the above and get maximum throw (old way) uncomment in _config.h the line #define DSM_FULL_THROW . In this mode to achieve standard throw use a channel weight of 84%.
 
 ### Sub_protocol DSM2_22 - *0*
 DSM2, Resolution 1024, refresh rate 22ms
@@ -368,7 +370,7 @@ DSMX, Resolution 2048, refresh rate 11ms
 ### Sub_protocol AUTO - *4*
 The "AUTO" feature enables the TX to automatically choose what are the best settings for your DSM RX and update your model protocol settings accordingly.
 
-The current radio firmware which are able to use the "AUTO" feature are ersky9x (9XR Pro, 9Xtreme, Taranis, ...) and er9x for M128 (9XR) and M2561.
+The current radio firmware which are able to use the "AUTO" feature are ersky9x (9XR Pro, 9Xtreme, Taranis, ...), er9x for M128(9XR)&M2561 and OpenTX (mostly Taranis).
 For these firmwares, you must have a telemetry enabled TX and you have to make sure you set the Telemetry "Usr proto" to "DSMx".
 Also on er9x you will need to be sure to match the polarity of the telemetry serial (normal or inverted by bitbashing), while on ersky9x you can set "Invert COM1" accordinlgy.
 
@@ -395,9 +397,9 @@ Autobind protocol
 
 CH1|CH2|CH3|CH4|CH5|CH6|CH7|CH8|CH9|CH10|CH11
 ---|---|---|---|---|---|---|---|---|----|----
-A|E|T|R|FLIP|RTH|PICTURE|VIDEO|HEADLESS|INVERTED|RATE
+A|E|T|R|FLIP|RTH|PICTURE|VIDEO|HEADLESS|INVERTED|RATES
 
-RATE: -100%(default)=>higher rates by enabling dynamic trims (except for Headless), 100%=>disable dynamic trims
+RATES: -100%(default)=>higher rates by enabling dynamic trims (except for Headless), 100%=>disable dynamic trims
 
 ### Sub_protocol BAYANG - *0*
 Models: EAchine H8(C) mini, BayangToys X6/X7/X9, JJRC JJ850, Floureon H101 ...
@@ -764,6 +766,8 @@ Autobind protocol
 CH1|CH2|CH3|CH4|CH5|CH6|CH7|CH8|CH9
 ---|---|---|---|---|---|---|---|---
 A|E|T|R|FLIP|RATES|PICTURE|VIDEO|HEADLESS
+
+RATES: -100%(default)=>disable dynamic trims, +100%=> higher rates by enabling dynamic trims (except for Headless)
 
 ### Sub_protocol SYMAX - *0*
 Models: Syma X5C-1/X11/X11C/X12

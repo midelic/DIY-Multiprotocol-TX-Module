@@ -75,11 +75,8 @@ uint8_t  packet[40];
 
 #define NUM_CHN 16
 // Servo data
-uint16_t Servo_data[NUM_CHN];
 uint16_t Channel_data[NUM_CHN];
-uint8_t  Servo_AUX;
-uint16_t servo_max_100,servo_min_100,servo_max_125,servo_min_125;
-uint16_t servo_mid;
+uint8_t  Channel_AUX;
 #ifdef FAILSAFE_ENABLE
 	uint16_t Failsafe_data[NUM_CHN];
 #endif
@@ -128,17 +125,20 @@ uint8_t  RX_num;
 #endif
 
 //Channel mapping for protocols
-const uint8_t CH_AETR[]={AILERON, ELEVATOR, THROTTLE, RUDDER, AUX1, AUX2, AUX3, AUX4, AUX5, AUX6, AUX7, AUX8, AUX9, AUX10};
-const uint8_t CH_TAER[]={THROTTLE, AILERON, ELEVATOR, RUDDER, AUX1, AUX2, AUX3, AUX4, AUX5, AUX6, AUX7, AUX8};
-const uint8_t CH_RETA[]={RUDDER, ELEVATOR, THROTTLE, AILERON, AUX1, AUX2, AUX3, AUX4, AUX5, AUX6, AUX7, AUX8};
-const uint8_t CH_EATR[]={ELEVATOR, AILERON, THROTTLE, RUDDER, AUX1, AUX2, AUX3, AUX4, AUX5, AUX6, AUX7, AUX8};
+const uint8_t CH_AETR[]={AILERON, ELEVATOR, THROTTLE, RUDDER, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH16};
+const uint8_t CH_TAER[]={THROTTLE, AILERON, ELEVATOR, RUDDER, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH16};
+const uint8_t CH_RETA[]={RUDDER, ELEVATOR, THROTTLE, AILERON, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH16};
+const uint8_t CH_EATR[]={ELEVATOR, AILERON, THROTTLE, RUDDER, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH16};
 
 // Mode_select variables
 uint8_t mode_select;
 uint8_t protocol_flags=0,protocol_flags2=0;
 
+#ifdef ENABLE_PPM
 // PPM variable
 volatile uint16_t PPM_data[NUM_CHN];
+volatile uint8_t  PPM_chan_max=0;
+#endif
 
 #if not defined (ORANGE_TX) && not defined (STM32_BOARD)
 //Random variable
@@ -359,15 +359,13 @@ void setup()
 			((MODE_DIAL3_ipr & _BV(MODE_DIAL3_pin)) ? 0 : 4) +
 			((MODE_DIAL4_ipr & _BV(MODE_DIAL4_pin)) ? 0 : 8);
 	#endif
+	//mode_select=1;
     debugln("Mode switch reads as %d", mode_select);
 
 	// Set default channels' value
-	for(uint8_t i=0;i<NUM_CHN;i++)
-		Servo_data[i]=1500;
-	Servo_data[THROTTLE]=servo_min_100;
 	InitChannel();
 	#ifdef ENABLE_PPM
-		memcpy((void *)PPM_data,Servo_data, sizeof(Servo_data));
+		InitPPM();
 	#endif
 
 	// Update LED
@@ -436,8 +434,6 @@ void setup()
 			BIND_IN_PROGRESS;	// Force a bind at protocol startup
 		}
 		mode_select++;
-		servo_max_100=PPM_MAX_100; servo_min_100=PPM_MIN_100;
-		servo_max_125=PPM_MAX_125; servo_min_125=PPM_MIN_125;
 
 		protocol_init();
 
@@ -467,8 +463,6 @@ void setup()
 			for(uint8_t i=0;i<3;i++)
 				cur_protocol[i]=0;
 			protocol=0;
-			servo_max_100=SERIAL_MAX_100; servo_min_100=SERIAL_MIN_100;
-			servo_max_125=SERIAL_MAX_125; servo_min_125=SERIAL_MIN_125;
 			#ifdef CHECK_FOR_BOOTLOADER
 				Mprotocol_serial_init(1); 	// Configure serial and enable RX interrupt
 			#else
@@ -476,7 +470,6 @@ void setup()
 			#endif
 		#endif //ENABLE_SERIAL
 	}
-	servo_mid=servo_min_100+servo_max_100;	//In fact 2* mid_value
 	debugln("Init complete");
 }
 
@@ -584,19 +577,20 @@ uint8_t Update_All()
 	#ifdef ENABLE_PPM
 		if(mode_select!=MODE_SERIAL && IS_PPM_FLAG_on)		// PPM mode and a full frame has been received
 		{
-			for(uint8_t i=0;i<MAX_PPM_CHANNELS;i++)
-			{ // update servo data without interrupts to prevent bad read in protocols
-				uint16_t temp_ppm ;
+			for(uint8_t i=0;i<PPM_chan_max;i++)
+			{ // update servo data without interrupts to prevent bad read
+				uint16_t val;
 				cli();										// disable global int
-				temp_ppm = PPM_data[i] ;
+				val = PPM_data[i];
 				sei();										// enable global int
-				if(temp_ppm<PPM_MIN_125) temp_ppm=PPM_MIN_125;
-				else if(temp_ppm>PPM_MAX_125) temp_ppm=PPM_MAX_125;
-				Servo_data[i]= temp_ppm ;
+				val=map16b(val,PPM_MIN_100*2,PPM_MAX_100*2,CHANNEL_MIN_100,CHANNEL_MAX_100);
+				if(val&0x8000) 					val=CHANNEL_MIN_125;
+				else if(val>CHANNEL_MAX_125)	val=CHANNEL_MAX_125;
+				Channel_data[i]=val;
 			}
 			PPM_FLAG_off;									// wait for next frame before update
 			update_channels_aux();
-			INPUT_SIGNAL_on;								//valid signal received
+			INPUT_SIGNAL_on;								// valid signal received
 			last_signal=millis();
 		}
 	#endif //ENABLE_PPM
@@ -608,13 +602,13 @@ uint8_t Update_All()
 				TelemetryUpdate();
 	#endif
 	#ifdef ENABLE_BIND_CH
-		if(IS_AUTOBIND_FLAG_on && IS_BIND_CH_PREV_off && Servo_data[BIND_CH-1]>PPM_MAX_COMMAND && Servo_data[THROTTLE]<(servo_min_100+25))
+		if(IS_AUTOBIND_FLAG_on && IS_BIND_CH_PREV_off && Channel_data[BIND_CH-1]>CHANNEL_MAX_COMMAND && Channel_data[THROTTLE]<(CHANNEL_MIN_100+50))
 		{ // Autobind is on and BIND_CH went up and Throttle is low
 			CHANGE_PROTOCOL_FLAG_on;							//reload protocol
 			BIND_IN_PROGRESS;									//enable bind
 			BIND_CH_PREV_on;
 		}
-		if(IS_AUTOBIND_FLAG_on && IS_BIND_CH_PREV_on && Servo_data[BIND_CH-1]<PPM_MIN_COMMAND)
+		if(IS_AUTOBIND_FLAG_on && IS_BIND_CH_PREV_on && Channel_data[BIND_CH-1]<CHANNEL_MIN_COMMAND)
 		{ // Autobind is on and BIND_CH went down
 			BIND_CH_PREV_off;
 			//Request protocol to terminate bind
@@ -635,27 +629,28 @@ uint8_t Update_All()
 	return 0;
 }
 
-// Update channels direction and Servo_AUX flags based on servo AUX positions
+// Update channels direction and Channel_AUX flags based on servo AUX positions
 static void update_channels_aux(void)
 {
 	//Reverse channels direction
 	#ifdef REVERSE_AILERON
-		Servo_data[AILERON]=servo_mid-Servo_data[AILERON];
+		reverse_channel(AILREON);
 	#endif
 	#ifdef REVERSE_ELEVATOR
-		Servo_data[ELEVATOR]=servo_mid-Servo_data[ELEVATOR];
+		reverse_channel(ELEVATOR);
 	#endif
 	#ifdef REVERSE_THROTTLE
-		Servo_data[THROTTLE]=servo_mid-Servo_data[THROTTLE];
+		reverse_channel(THROTTLE);
 	#endif
 	#ifdef REVERSE_RUDDER
-		Servo_data[RUDDER]=servo_mid-Servo_data[RUDDER];
+		reverse_channel(RUDDER);
 	#endif
+		
 	//Calc AUX flags
-	Servo_AUX=0;
+	Channel_AUX=0;
 	for(uint8_t i=0;i<8;i++)
-		if(Servo_data[AUX1+i]>PPM_SWITCH)
-			Servo_AUX|=1<<i;
+		if(Channel_data[CH5+i]>CHANNEL_SWITCH)
+			Channel_AUX|=1<<i;
 }
 
 // Update led status based on binding and serial
@@ -794,6 +789,8 @@ static void protocol_init()
 		PE1_on;							//NRF24L01 antenna RF3 by default
 		PE2_off;						//NRF24L01 antenna RF3 by default
 		
+		debugln("Protocol selected: %d, sub proto %d, rxnum %d, option %d", protocol, sub_protocol, RX_num, option);
+
 		switch(protocol)				// Init the requested protocol
 		{
 			#ifdef A7105_INSTALLED
@@ -867,7 +864,6 @@ static void protocol_init()
 					case MODE_DSM:
 						PE2_on;	//antenna RF4
 						next_callback = initDsm();
-						//Servo_data[2]=1500;//before binding
 						remote_callback = ReadDsm;
 						break;
 				#endif
@@ -1149,18 +1145,21 @@ void update_serial_data()
 			FAILSAFE_VALUES_on;					//failsafe data has been received
 		}
 	#endif
+	#ifdef BONI
+		if(CH14_SW)
+			rx_ok_buff[2]=(rx_ok_buff[2]&0xF0)|((rx_ok_buff[2]+1)&0x0F);	// Extremely dangerous, do not enable this!!! This is really for a special case...
+	#endif
 	if( (rx_ok_buff[0] != cur_protocol[0]) || ((rx_ok_buff[1]&0x5F) != (cur_protocol[1]&0x5F)) || ( (rx_ok_buff[2]&0x7F) != (cur_protocol[2]&0x7F) ) )
 	{ // New model has been selected
 		CHANGE_PROTOCOL_FLAG_on;				//change protocol
 		WAIT_BIND_off;
-		if(IS_AUTOBIND_FLAG_on)
-			BIND_IN_PROGRESS;					//launch bind right away if in autobind mode
+		if((rx_ok_buff[1]&0x80)!=0 || IS_AUTOBIND_FLAG_on)
+			BIND_IN_PROGRESS;					//launch bind right away if in autobind mode or bind is set
 		else
 			BIND_DONE;
 		protocol=(rx_ok_buff[0]==0x55?0:32) + (rx_ok_buff[1]&0x1F);	//protocol no (0-63) bits 4-6 of buff[1] and bit 0 of buf[0]
 		sub_protocol=(rx_ok_buff[2]>>4)& 0x07;	//subprotocol no (0-7) bits 4-6
 		RX_num=rx_ok_buff[2]& 0x0F;				// rx_num bits 0---3
-		debugln("New protocol selected: %d, sub proto %d, rxnum %d, option %d", protocol, sub_protocol, RX_num, option);
 	}
 	else
 		if( ((rx_ok_buff[1]&0x80)!=0) && ((cur_protocol[1]&0x80)==0) )		// Bind flag has been set
@@ -1202,10 +1201,7 @@ void update_serial_data()
 				Failsafe_data[i]=temp;			//value range 0..2047, 0=no pulses, 2047=hold
 			else
 		#endif
-			{
 				Channel_data[i]=temp;			//value range 0..2047, 0=-125%, 2047=+125%
-				Servo_data[i]=(temp*5)/8+860;	//value range 860<->2140 -125%<->+125%
-			}
 	}
 	RX_DONOTUPDATE_off;
 	#ifdef ORANGE_TX
@@ -1525,20 +1521,23 @@ static uint32_t random_id(uint16_t address, uint8_t create_new)
 		uint16_t Cur_TCNT1;
 
 		Cur_TCNT1 = TCNT1 - Prev_TCNT1 ;	// Capture current Timer1 value
-		if(Cur_TCNT1<1000)
+		if(Cur_TCNT1<1600)
 			bad_frame=1;					// bad frame
 		else
-			if(Cur_TCNT1>4840)
+			if(Cur_TCNT1>4400)
 			{  //start of frame
 				if(chan>=MIN_PPM_CHANNELS)
+				{
 					PPM_FLAG_on;			// good frame received if at least 4 channels have been seen
+					if(chan>PPM_chan_max) PPM_chan_max=chan;	// Saving the number of channels received
+				}
 				chan=0;						// reset channel counter
 				bad_frame=0;
 			}
 			else
 				if(bad_frame==0)			// need to wait for start of frame
-				{  //servo values between 500us and 2420us will end up here
-					PPM_data[chan]= Cur_TCNT1>>1;;
+				{  //servo values between 800us and 2200us will end up here
+					PPM_data[chan]=Cur_TCNT1;
 					if(chan++>=MAX_PPM_CHANNELS)
 						bad_frame=1;		// don't accept any new channels
 				}
@@ -1691,5 +1690,3 @@ static uint32_t random_id(uint16_t address, uint8_t create_new)
 		}
 	}
 #endif
-
-

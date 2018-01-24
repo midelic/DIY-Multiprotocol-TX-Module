@@ -2,55 +2,37 @@
 #if defined(TX_ER9X)
 	#define PPM_MAX_100 2012	//	100%
 	#define PPM_MIN_100 988		//	100%
-	#define PPM_MAX_125	2140	//	125%
-	#define PPM_MIN_125	860		//	125%
 #endif
 
 // Devo PPM and channels
 #if defined(TX_DEVO7)
 	#define PPM_MAX_100	1920	//	100%
 	#define PPM_MIN_100	1120	//	100%
-	#define PPM_MAX_125	2120	//	125%
-	#define PPM_MIN_125	920		//	125%
 #endif
 
 // SPEKTRUM PPM and channels
 #if defined(TX_SPEKTRUM)
 	#define PPM_MAX_100	1900	//	100%
 	#define PPM_MIN_100	1100	//	100%
-	#define PPM_MAX_125	2000	//	125%
-	#define PPM_MIN_125	1000	//	125%
 #endif
 
 // HISKY
 #if defined(TX_HISKY)
 	#define PPM_MAX_100	1920	//	100%
 	#define PPM_MIN_100	1120	//	100%
-	#define PPM_MAX_125	2020	//	125%
-	#define PPM_MIN_125	1020	//	125%
 #endif
 
 // Multiplex MC2020
 #if defined(TX_MPX)
 	#define PPM_MAX_100 1950 // 100%
 	#define PPM_MIN_100 1250 // 100%
-	#define PPM_MAX_125 2050 // 125%
-	#define PPM_MIN_125 1150 // 125%
 #endif
 
 // Walkera PL0811-01H
 #if defined(TX_WALKERA)
 	#define PPM_MAX_100 1800 // 100%
 	#define PPM_MIN_100 1000 // 100%
-	#define PPM_MAX_125 1900 // 125%
-	#define PPM_MIN_125 900  // 125%
 #endif
-
-//Serial MIN MAX values
-#define SERIAL_MAX_100	2012	//	100%
-#define SERIAL_MIN_100	988		//	100%
-#define SERIAL_MAX_125	2140	//	125%
-#define SERIAL_MIN_125	860		//	125%
 
 //Channel MIN MAX values
 #define CHANNEL_MAX_100	1844	//	100%
@@ -58,10 +40,9 @@
 #define CHANNEL_MAX_125	2047	//	125%
 #define CHANNEL_MIN_125	0		//	125%
 
-//PPM values used to compare
-#define PPM_MIN_COMMAND 1250
-#define PPM_SWITCH		1550
-#define PPM_MAX_COMMAND 1750
+#define CHANNEL_MIN_COMMAND 784		// 1350us
+#define CHANNEL_SWITCH		1104	// 1550us
+#define CHANNEL_MAX_COMMAND 1424	// 1750us
 
 //Channel definitions
 #ifdef AETR
@@ -212,15 +193,19 @@
 	#define	RUDDER   0
 #endif
 
-#define	AUX1	4
-#define	AUX2	5
-#define	AUX3	6
-#define	AUX4	7
-#define	AUX5	8
-#define	AUX6	9
-#define	AUX7	10
-#define	AUX8	11
-#define	AUX9	12
-#define	AUX10	13
-#define	AUX11	14
-#define	AUX12	15
+#define	CH1		0
+#define	CH2		1
+#define	CH3		2
+#define	CH4		3
+#define	CH5		4
+#define	CH6		5
+#define	CH7		6
+#define	CH8		7
+#define	CH9		8
+#define	CH10	9
+#define	CH11	10
+#define	CH12	11
+#define	CH13	12
+#define	CH14	13
+#define	CH15	14
+#define	CH16	15

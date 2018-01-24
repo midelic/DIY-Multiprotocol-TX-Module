@@ -171,8 +171,9 @@ static void AFHDS2A_build_packet(uint8_t type)
 			packet[0] = 0x58;
 			for(uint8_t ch=0; ch<14; ch++)
 			{
-				packet[9 +  ch*2] = Servo_data[CH_AETR[ch]]&0xFF;
-				packet[10 + ch*2] = (Servo_data[CH_AETR[ch]]>>8)&0xFF;
+				uint16_t channelMicros = convert_channel_ppm(CH_AETR[ch]);
+				packet[9 +  ch*2] = channelMicros&0xFF;
+				packet[10 + ch*2] = (channelMicros>>8)&0xFF;
 			}
 			break;
 		case AFHDS2A_PACKET_FAILSAFE:
@@ -180,7 +181,8 @@ static void AFHDS2A_build_packet(uint8_t type)
 			for(uint8_t ch=0; ch<14; ch++)
 			{
 				#ifdef FAILSAFE_ENABLE
-					uint16_t failsafeMicros = (Failsafe_data[CH_AETR[ch]]*5)/8+860;
+					uint16_t failsafeMicros = Failsafe_data[CH_AETR[ch]];
+					failsafeMicros = (((failsafeMicros<<2)+failsafeMicros)>>3)+860;
 					if( failsafeMicros!=FAILSAFE_CHANNEL_HOLD+860)
 					{ // Failsafe values
 						packet[9 + ch*2] =  failsafeMicros & 0xff;
@@ -359,7 +361,7 @@ uint16_t initAFHDS2A()
 	{
 		phase = AFHDS2A_DATA;
 		//Read RX ID from EEPROM based on RX_num, RX_num must be uniq for each RX
-		uint8_t temp=50+RX_num*4;
+		uint8_t temp=AFHDS2A_EEPROM_OFFSET+RX_num*4;
 		for(uint8_t i=0;i<4;i++)
 			rx_id[i]=eeprom_read_byte((EE_ADDR)(temp+i));
 	}
